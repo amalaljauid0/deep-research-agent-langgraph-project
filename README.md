@@ -1,56 +1,54 @@
-# AI Research Agent — Project Starter
+# AI Research Agent — Parallel Multi-Agent Pipeline
 
-One self-contained notebook: **researcher → analyst → writer**. You build
-the three agents with LangChain 1.x `create_agent` and chain them with
-LangGraph's Graph API (`StateGraph`). Finish three TODOs — write the system
-prompts (TODO #1), build the agents (TODO #2), build the pipeline (TODO #3).
+A research assistant built with LangChain 1.x `create_agent` and LangGraph `StateGraph`.
+Given a question, it researches the topic from two angles **in parallel**, analyzes the
+findings, and writes a beginner-friendly report with sources.
 
-## Google Colab (easiest)
+## Architecture (non-sequential: parallel fan-out / fan-in)
 
-1. Open `research_agent.ipynb` in Colab.
-2. Add a secret named `OPENROUTER_API_KEY` (key icon in the left sidebar).
-3. Finish the TODOs, then `Runtime → Run all`.
+    START ──┬──> researcher_facts   ──┐
+            └──> researcher_context ──┴──> analyst ──> writer ──> END
 
-## On your own machine
+| Node | Job | Tools |
+|------|-----|-------|
+| `researcher_facts` | Finds definitions, key facts, and data | `web_search`, `read_webpage` |
+| `researcher_context` | Finds use cases, advantages, and disadvantages | `web_search`, `read_webpage` |
+| `analyst` | Waits for both branches, compares and combines them | none |
+| `writer` | Turns the analysis into a clear report with sources | none |
 
-```bash
-uv sync
-cp .env.example .env   # open .env and paste your OPENROUTER_API_KEY
-uv run jupyter lab research_agent.ipynb
-```
+- Both researchers use the same `create_agent` researcher, but with different tasks.
+- Each branch writes to its **own State key** (`research_facts`, `research_context`),
+  so the parallel branches never overwrite each other.
+- The analyst runs only after **both** branches finish (fan-in).
 
-## How to submit
+## Reliability
 
-1. **Fork** this repository (Fork button, top-right on GitHub).
-2. **Clone your fork**, open the notebook, and finish the three TODOs.
-3. **Commit and push** your work to your fork:
-   ```bash
-   git add research_agent.ipynb README.md
-   git commit -m "Finish research agent project"
-   git push
-   ```
-   Never commit your `.env` file — it holds your API key (it is already in `.gitignore`).
-4. **Tag the academy** so we can find your submission: edit the bottom of your fork's `README.md`, add this line, then commit and push again:
-   ```markdown
-   Submitted by: <your name> — academy: @SDAIAAcademy
-   ```
-5. Your submission is complete when your fork's last commit contains your finished `research_agent.ipynb` and the README line above. Grading follows `EVALUATION.md`.
+- **Search fallback:** `web_search` tries DuckDuckGo first and automatically falls back
+  to the free Wikipedia API when DuckDuckGo is blocked or returns nothing.
+- **Safe agent calls:** `safe_run` catches agent errors and empty answers and passes a
+  clear fallback message to the next stage instead of crashing the pipeline.
+- **Step budget:** `ToolCallLimitMiddleware` caps the researcher's tool calls.
+- **Observability (given):** every agent run prints a trace with tokens and real OpenRouter cost.
 
-## Structure
+## Setup and run (local)
 
-```
-project_starter/
-├── research_agent.ipynb   # the whole project (helpers given, 3 TODOs inside)
-├── EVALUATION.md          # Grading rubric for the project
-├── pyproject.toml         # Dependencies (for local runs)
-├── .env.example           # Environment variable template (local runs)
-├── .gitignore             # Keeps .env and local caches out of git
-└── uv.lock                # Locked dependency versions
-```
+    uv sync
+    copy .env.example .env      # Windows (use cp on Mac/Linux), then paste your OPENROUTER_API_KEY
+    uv run jupyter lab research_agent.ipynb
 
-## Quick reference
+Then run all cells top to bottom (skip the Colab `pip install` cell, it is commented out).
+The last code cells draw the graph and run a live query: `Compare RAG and fine-tuning`.
 
-```bash
-uv sync                                  # install dependencies
-uv run jupyter lab research_agent.ipynb  # open the project
-```
+Never commit your `.env` file. It holds your API key and is already in `.gitignore`.
+
+## Project structure
+
+    ├── research_agent.ipynb   # setup, tools, agents, parallel graph, live run
+    ├── EVALUATION.md          # grading rubric
+    ├── pyproject.toml         # dependencies (managed with uv)
+    ├── uv.lock                # locked dependency versions
+    ├── .env.example           # environment variable template
+    └── .gitignore             # keeps .env out of git
+
+Submitted by: Amal Alotaibi — academy: @SDAIAAcademy
+[github.com/SDAIAAcademy](https://github.com/SDAIAAcademy).
